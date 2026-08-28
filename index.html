@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Text Splitter</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #0f172a;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg); color: var(--text-main); padding: 32px 16px; min-height: 100vh; display: flex; justify-content: center; }
+        .wrapper { width: 100%; max-width: 760px; }
+
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .title { font-size: 1.35rem; font-weight: 700; }
+        .lang-switch { display: flex; background: var(--border); border-radius: 8px; padding: 2px; }
+        .lang-btn { border: none; background: transparent; padding: 4px 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 6px; color: var(--text-sub); transition: 0.2s; }
+        .lang-btn.active { background: var(--surface); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* Card */
+        .card { background: var(--surface); border-radius: 16px; border: 1px solid var(--border); padding: 20px; box-shadow: 0 4px 20px -4px rgba(0,0,0,0.04); margin-bottom: 24px; }
+        .section-label { font-size: 0.8rem; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Presets */
+        .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .preset-chip { border: 1px solid var(--border); background: var(--surface); padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: var(--text-main); transition: 0.15s; }
+        .preset-chip:hover { border-color: var(--primary); }
+        .preset-chip.active { background: #eff6ff; border-color: var(--primary); color: var(--primary); font-weight: 600; }
+
+        /* Inputs */
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field label { font-size: 0.85rem; font-weight: 500; color: var(--text-sub); }
+        .field input { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; outline: none; transition: 0.2s; }
+        .field input:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+
+        textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.95rem; line-height: 1.5; resize: vertical; outline: none; transition: 0.2s; }
+        .counter-bar { display: flex; justify-content: space-between; margin: 8px 0 16px 0; font-size: 0.85rem; color: var(--text-sub); }
+        .counter-val { font-weight: 700; color: var(--primary); }
+
+        /* Button */
+        .btn-action { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; font-size: 0.95rem; font-weight: 600; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .btn-action:hover { background: var(--primary-hover); }
+
+        /* Outputs */
+        .output-list { display: flex; flex-direction: column; gap: 16px; }
+        .output-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; box-shadow: 0 2px 10px -2px rgba(0,0,0,0.03); }
+        .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .output-title { font-size: 0.9rem; font-weight: 600; color: var(--text-main); }
+        .btn-copy { background: #f1f5f9; border: 1px solid var(--border); padding: 5px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: 0.2s; color: var(--text-main); }
+        .btn-copy:hover { background: #e2e8f0; }
+        .btn-copy.copied { background: var(--success); color: white; border-color: var(--success); }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="header">
+        <h1 class="title" id="ui-title">Universal Text Splitter</h1>
+        <div class="lang-switch">
+            <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">EN</button>
+            <button class="lang-btn" id="btn-zh" onclick="setLanguage('zh')">中文</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-label" id="ui-presets-label">Presets & Limits</div>
+        <div class="presets" id="presets-container"></div>
+
+        <div class="settings-grid">
+            <div class="field">
+                <label id="ui-limit-label">Character Limit</label>
+                <input type="number" id="limit" value="1000" oninput="markCustom()">
+            </div>
+            <div class="field">
+                <label id="ui-buffer-label">Safety Margin</label>
+                <input type="number" id="buffer" value="10" placeholder="e.g. 10">
+            </div>
+        </div>
+
+        <textarea id="input-text" rows="6" dir="auto" placeholder="Paste text here (Auto RTL for Persian / English / Chinese)..."></textarea>
+        
+        <div class="counter-bar">
+            <span><span id="ui-total-label">Total Characters:</span> <span class="counter-val" id="char-count">0</span></span>
+        </div>
+
+        <button class="btn-action" id="ui-btn-split" onclick="splitText()">Split Text</button>
+    </div>
+
+    <div class="output-list" id="output-container"></div>
+</div>
+
+<script>
+    let currentLang = 'en';
+    let selectedPresetIndex = 0; // 默认选中 IG DM
+
+    const presetConfigs = [
+        { key: 'ig_dm', limit: 1000 },
+        { key: 'ig_post', limit: 2200 },
+        { key: 'twitter', limit: 280 },
+        { key: 'discord', limit: 2000 },
+        { key: 'tg_media', limit: 1024 },
+        { key: 'custom', limit: null }
+    ];
+
+    const i18n = {
+        en: {
+            title: "Universal Text Splitter",
+            presetsLabel: "Presets & Limits",
+            limitLabel: "Character Limit",
+            bufferLabel: "Safety Margin",
+            placeholder: "Paste text here (Auto RTL for Persian / English / Chinese)...",
+            totalLabel: "Total Characters:",
+            btnSplit: "Split Text",
+            part: "Part",
+            unit: "chars",
+            btnCopy: "Copy",
+            btnCopied: "Copied ✓",
+            errLimit: "Limit must be greater than safety margin!",
+            presets: {
+                ig_dm: "IG DM (1000)",
+                ig_post: "IG Caption (2200)",
+                twitter: "Twitter / X (280)",
+                discord: "Discord (2000)",
+                tg_media: "TG Media Caption (1024)",
+                custom: "Custom"
+            }
+        },
+        zh: {
+            title: "多语言文字分割器",
+            presetsLabel: "平台预设与限制",
+            limitLabel: "单段字符上限",
+            bufferLabel: "安全冗余度",
+            placeholder: "在此粘贴文本（自动识别波斯语 / 英语 / 中文排版）...",
+            totalLabel: "当前总字符数:",
+            btnSplit: "立即分割",
+            part: "第",
+            unit: "字符",
+            btnCopy: "复制",
+            btnCopied: "已复制 ✓",
+            errLimit: "单段上限必须大于安全冗余度！",
+            presets: {
+                ig_dm: "IG 私信 (1000)",
+                ig_post: "IG 帖子 (2200)",
+                twitter: "Twitter / X (280)",
+                discord: "Discord (2000)",
+                tg_media: "TG 媒体配字 (1024)",
+                custom: "自定义"
+            }
+        }
+    };
+
+    function renderPresets() {
+        const container = document.getElementById('presets-container');
+        container.innerHTML = '';
+        presetConfigs.forEach((cfg, idx) => {
+            const btn = document.createElement('button');
+            btn.className = `preset-chip ${selectedPresetIndex === idx ? 'active' : ''}`;
+            btn.textContent = i18n[currentLang].presets[cfg.key];
+            btn.onclick = () => {
+                selectedPresetIndex = idx;
+                if (cfg.limit !== null) {
+                    document.getElementById('limit').value = cfg.limit;
+                }
+                renderPresets();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function markCustom() {
+        selectedPresetIndex = presetConfigs.findIndex(cfg => cfg.key === 'custom');
+        renderPresets();
+    }
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+        document.getElementById('btn-zh').classList.toggle('active', lang === 'zh');
+        
+        const t = i18n[lang];
+        document.getElementById('ui-title').textContent = t.title;
+        document.getElementById('ui-presets-label').textContent = t.presetsLabel;
+        document.getElementById('ui-limit-label').textContent = t.limitLabel;
+        document.getElementById('ui-buffer-label').textContent = t.bufferLabel;
+        document.getElementById('input-text').placeholder = t.placeholder;
+        document.getElementById('ui-total-label').textContent = t.totalLabel;
+        document.getElementById('ui-btn-split').textContent = t.btnSplit;
+
+        renderPresets();
+        if (document.getElementById('output-container').children.length > 0) {
+            splitText();
+        }
+    }
+
+    const inputText = document.getElementById('input-text');
+    const countDisplay = document.getElementById('char-count');
+    const container = document.getElementById('output-container');
+
+    inputText.addEventListener('input', () => {
+        countDisplay.textContent = Array.from(inputText.value).length;
+    });
+
+    function splitText() {
+        const textArray = Array.from(inputText.value);
+        const limit = parseInt(document.getElementById('limit').value) || 1000;
+        const buffer = parseInt(document.getElementById('buffer').value) || 0;
+        const actualLimit = limit - buffer;
+        const t = i18n[currentLang];
+
+        if (actualLimit <= 0) {
+            alert(t.errLimit);
+            return;
+        }
+
+        container.innerHTML = '';
+        if (textArray.length === 0) return;
+
+        for (let i = 0; i < textArray.length; i += actualLimit) {
+            const chunk = textArray.slice(i, i + actualLimit).join('');
+            const chunkCount = Array.from(chunk).length;
+            const partIdx = Math.floor(i / actualLimit) + 1;
+
+            const card = document.createElement('div');
+            card.className = 'output-card';
+
+            const header = document.createElement('div');
+            header.className = 'output-header';
+
+            const title = document.createElement('span');
+            title.className = 'output-title';
+            title.textContent = currentLang === 'zh' 
+                ? `${t.part} ${partIdx} 段 (${chunkCount} ${t.unit})`
+                : `${t.part} ${partIdx} (${chunkCount} ${t.unit})`;
+
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'btn-copy';
+            copyBtn.textContent = t.btnCopy;
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(chunk).then(() => {
+                    copyBtn.textContent = t.btnCopied;
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => {
+                        copyBtn.textContent = t.btnCopy;
+                        copyBtn.classList.remove('copied');
+                    }, 2000);
+                });
+            };
+
+            header.appendChild(title);
+            header.appendChild(copyBtn);
+
+            const textarea = document.createElement('textarea');
+            textarea.rows = 4;
+            textarea.dir = "auto";
+            textarea.readOnly = true;
+            textarea.value = chunk;
+            textarea.style.backgroundColor = "#f8fafc";
+            textarea.style.color = "#334155";
+
+            card.appendChild(header);
+            card.appendChild(textarea);
+            container.appendChild(card);
+        }
+    }
+
+    // 初始化预设
+    renderPresets();
+</script>
+</body>
+</html>
